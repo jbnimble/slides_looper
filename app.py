@@ -12,6 +12,19 @@ def slide_loader(url: str, is_redirect: bool = False, is_kiosk: bool = False, ch
     options = webdriver.ChromeOptions()
     options.page_load_strategy = 'normal'
     options.accept_insecure_certs = True
+    options.add_argument('no-default-browser-check')
+    options.add_argument('no-first-run')
+    options.add_argument('ash-no-nudges')
+    options.add_argument('disable-search-engine-choice-screen')
+    options.add_argument('aggressive-cache-discard')
+    options.add_argument('deny-permission-prompts')
+    options.add_argument('disable-notifications')
+    options.add_argument('disk-cache-size=0')
+    options.add_argument('disable-background-networking')
+    options.add_argument('disable-component-update')
+    options.add_argument('disable-domain-reliability')
+    options.add_argument('disable-sync')
+    options.add_argument('no-pings')
     # stops this error => "DevToolsActivePort file doesn't exist"
     options.add_argument(f'remote-debugging-port={chrome_debug_port}')
     if is_kiosk:
@@ -31,7 +44,9 @@ def slide_repeater(url: str, is_redirect: bool = False, driver = None):
     data_redirect_url = None
     data_latest_aria = None
     data_latest_groups = None
+    print(f'Loading {url}')
     while True:
+        # reload loop
         try:
             driver.get(url)
             data_loaded_url = driver.current_url
@@ -40,6 +55,7 @@ def slide_repeater(url: str, is_redirect: bool = False, driver = None):
                 data_redirect_url = driver.current_url
 
             while True:
+                # slide loop
                 slide_aria = driver.find_element(By.CSS_SELECTOR, "div.punch-viewer-svgpage-a11yelement")
                 data_latest_aria = slide_aria.get_attribute('aria-label')
                 re_matches = re_pattern.match(data_latest_aria)
@@ -52,8 +68,21 @@ def slide_repeater(url: str, is_redirect: bool = False, driver = None):
                 else:
                     latest_groups = None
                 wait.until(staleness_of(slide_aria))
+            # clear page data
+            driver.delete_all_cookies()
+            execute_script(driver, 'window.localStorage.clear()')
+            execute_script(driver, 'window.sessionStorage.clear()')
         except Exception as e:
+            if str(e).find('target window already closed') > 0:
+                print(f'No window found, exiting')
+                break
             print(f'Exception loaded={data_loaded_url} redirect={data_redirect_url} aria={data_latest_aria} groups={data_latest_groups} error={e}')
+
+def execute_script(driver, script: str):
+    try:
+        driver.execute_script(script)
+    except Exception as e:
+        print(f'Script "{script}" failed')
 
 def main():
     parser = argparse.ArgumentParser(description='Reload and cycle a presentation')
