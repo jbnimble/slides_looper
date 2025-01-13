@@ -5,6 +5,11 @@ Refresh and loop a Google Slides presentation after reaching the last slide
 ## Install and Run
 
 ```bash
+# On a managed system
+sudo apt update
+sudo apt install -y pip python3-selenium chromium chromium-driver
+
+# On a non-managed system
 pip3 install --requirement requirements.txt
 
 # redirect URL to a Google Slides presentation
