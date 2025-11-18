@@ -8,12 +8,16 @@ Refresh and loop a Google Slides presentation after reaching the last slide
 # On a managed system
 sudo apt update
 sudo apt install -y pip python3-selenium chromium chromium-driver
+# possibly updated names in Ubuntu
+sudo apt install -y python3-pip python3-selenium chromium-browser chromium-chromedriver
 
 # On a non-managed system
 pip3 install --requirement requirements.txt
 
 # redirect URL to a Google Slides presentation
 ./app.py --redirect --url="https://example.com/my-presentation-redirect"
+# example passing driver path
+./app.py --url="https://example.com/my-presentation-redirect" --driverpath="/usr/bin/chromedriver"
 
 # Direct URL to a Google Slides presentation in Kiosk mode
 ./app.py --kiosk --url="https://docs.google.com/presentation/d/e/foo/pub?start=true&loop=true&delayms=1000&slide=id.bar"
