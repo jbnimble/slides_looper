@@ -12,7 +12,9 @@ sudo apt install -y pip python3-selenium chromium chromium-driver
 sudo apt install -y python3-pip python3-selenium chromium-browser chromium-chromedriver
 
 # On a non-managed system
-pip3 install --requirement requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+.venv/bin/pip install --requirement=requirements.txt --editable .
 
 # redirect URL to a Google Slides presentation
 ./app.py --redirect --url="https://example.com/my-presentation-redirect"

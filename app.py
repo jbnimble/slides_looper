@@ -1,4 +1,4 @@
-#!/bin/python3
+#!/usr/bin/env python
 
 import argparse
 import re
@@ -7,6 +7,7 @@ import random
 import time
 import logging
 from logging.handlers import RotatingFileHandler
+
 from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
@@ -71,7 +72,7 @@ def slide_loader(appOptions: AppOptions):
         repeater_result = slide_repeater(appOptions, driver)
     return repeater_result
 
-def slide_repeater(appOptions: AppOptions, driver) -> bool:
+def slide_repeater(appOptions: AppOptions, driver: webdriver.Chrome) -> bool:
     """ Logic for reloading the presentation, return false to not loop again """
     re_pattern = re.compile(r'^Slide (\d+) of (\d+):')
     wait = WebDriverWait(driver, timeout=30.0)
@@ -79,6 +80,8 @@ def slide_repeater(appOptions: AppOptions, driver) -> bool:
     data_redirect_url = None
     data_latest_aria = None
     logger.info(f'Loading {appOptions.url}')
+    delay_screenshot_sec = 60
+    last_screenshot_time: float = time.time()
 
     if appOptions.is_maximize:
         driver.maximize_window() # Maximize window
@@ -120,6 +123,10 @@ def slide_repeater(appOptions: AppOptions, driver) -> bool:
                 else:
                     latest_groups = None
                 wait.until(staleness_of(slide_aria))
+                # screenshot checks
+                now_time: float = time.time()
+                if now_time - delay_screenshot_sec > last_screenshot_time:
+                    take_screenshot(driver)
             # clear page data
             driver.delete_all_cookies()
             execute_script(driver, 'window.localStorage.clear()')
@@ -138,6 +145,16 @@ def execute_script(driver, script: str):
         driver.execute_script(script)
     except Exception as e:
         logger.error(f'Script "{script}" failed')
+
+def take_screenshot(driver: webdriver.Chrome) -> None:
+    filename = 'screenshot.png'
+
+    try:
+        result_status: bool = driver.get_screenshot_as_file(filename)
+        if not result_status:
+            logger.error(f'Failed to take screenshot and save to {filename}')
+    except Exception as e:
+        logger.error(f'Failed to take screenshot due to {e}')
 
 def unique_url(url: str):
     params = {'my_unique': str(random.random())}
