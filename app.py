@@ -24,16 +24,18 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(log_handler)
 
 class AppOptions:
-    def __init__(self, url, is_redirect, is_kiosk, is_f11, is_unique, is_maximize, is_loop_new_window, last_slide_wait_sec, chrome_debug_port, driver_path):
+    def __init__(self, url, is_redirect, is_kiosk, is_f11, is_unique, is_maximize, is_custom_slide_duration, is_loop_new_window, last_slide_wait_sec, chrome_debug_port, default_slide_duration, driver_path):
         self.url = url
         self.is_redirect = is_redirect
         self.is_kiosk = is_kiosk
         self.is_f11 = is_f11
         self.is_unique = is_unique
         self.is_maximize = is_maximize
+        self.is_custom_slide_duration = is_custom_slide_duration
         self.is_loop_new_window = is_loop_new_window
         self.last_slide_wait_sec = last_slide_wait_sec
         self.chrome_debug_port = chrome_debug_port
+        self.default_slide_duration = default_slide_duration
         self.driver_path = driver_path
 
 def slide_loader(appOptions: AppOptions):
@@ -112,16 +114,21 @@ def slide_repeater(appOptions: AppOptions, driver: webdriver.Chrome) -> bool:
                     time_to_wait = float(appOptions.last_slide_wait_sec)
                     if time_to_wait >= 1:
                         time.sleep(time_to_wait) # pause before breaking to reload loop
-                    latest_groups = f'{re_matches.group(1)} of {re_matches.group(2)}'
                     if appOptions.is_loop_new_window:
                         logger.info(f'Exiting due to is_loop_new_window={appOptions.is_loop_new_window}')
                         return True
                     else:
                         break
                 elif len(re_matches.groups()) > 1:
-                    latest_groups = f'{re_matches.group(1)} of {re_matches.group(2)}'
+                    if appOptions.is_custom_slide_duration:
+                        index_slide = int(re_matches.group(1)) - 1
+                        index_notes = 9
+                        notes_html = execute_script(driver, f'return viewerData.docData[1][{index_slide}][{index_notes}]')
+                        duration = duration_parser(note_val=notes_html, duration_default=appOptions.default_slide_duration)
+                        time.sleep(duration)
+                        ActionChains(driver).send_keys(Keys.ARROW_RIGHT).perform() # change to next slide
                 else:
-                    latest_groups = None
+                    logger.warning(f'Unknown slide number matches = {re_matches.groups()}')
                 wait.until(staleness_of(slide_aria))
                 # screenshot checks
                 now_time: float = time.time()
@@ -141,10 +148,12 @@ def slide_repeater(appOptions: AppOptions, driver: webdriver.Chrome) -> bool:
     return False
 
 def execute_script(driver, script: str):
+    result = None
     try:
-        driver.execute_script(script)
+        result = driver.execute_script(script)
     except Exception as e:
         logger.error(f'Script "{script}" failed')
+    return result
 
 def take_screenshot(driver: webdriver.Chrome) -> None:
     filename = 'screenshot.png'
@@ -155,6 +164,17 @@ def take_screenshot(driver: webdriver.Chrome) -> None:
             logger.error(f'Failed to take screenshot and save to {filename}')
     except Exception as e:
         logger.error(f'Failed to take screenshot due to {e}')
+
+def duration_parser(note_val: str, beg_val: str = 'customduration=', end_val: str = ';', duration_default: int = 10) -> int:
+    """ looking for pattern 'customduration=VAL;' """
+    result = duration_default
+    if note_val and len(note_val) > 0:
+        pre_split = note_val.lower().split(beg_val)
+        if len(pre_split) > 1:
+            post_split = pre_split[1].split(end_val)
+            if len(post_split) > 1:
+                result = int(post_split[0])
+    return result
 
 def unique_url(url: str):
     params = {'my_unique': str(random.random())}
@@ -172,6 +192,8 @@ def main():
     parser.add_argument('--f11', action='store_true', help='Press F11 key when after loading URL')
     parser.add_argument('--unique', action='store_true', help='Add unique parameter with random value to URL')
     parser.add_argument('--maximize', action='store_true', help='Start browser window maximized')
+    parser.add_argument('--custom-slide-duration', action='store_true', help='Allow custom slide duration')
+    parser.add_argument('--default-slide-duration', default=10, help='Seconds for default slide duration when --custom-slide-duration is enabled')
     parser.add_argument('--loop-new-window', action='store_true', help='Start new browser for each loop')
     parser.add_argument('--last-slide-wait-sec', default="0", help='Wait number of seconds on last slide')
     parser.add_argument('--chrome-debug-port', default=12345, help='Chrome debug port')
@@ -183,9 +205,11 @@ def main():
         is_f11 = args.f11, 
         is_unique = args.unique, 
         is_maximize = args.maximize, 
+        is_custom_slide_duration = args.custom_slide_duration,
         is_loop_new_window = args.loop_new_window, 
         last_slide_wait_sec = args.last_slide_wait_sec, 
         chrome_debug_port=args.chrome_debug_port, 
+        default_slide_duration = args.default_slide_duration,
         driver_path=args.driverpath)
 
     if appOptions.is_loop_new_window:
